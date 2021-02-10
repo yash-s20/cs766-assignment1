@@ -1,0 +1,28 @@
+MODULE thread(y)
+
+VAR
+    state: {nc, w, c, e};
+ASSIGN
+    init(state) := nc;
+    next(state) := case
+                    state=nc : {nc, w};
+                    state=w & (y > 0): c;
+                    state=c : {c, e};
+                    state=e : nc;
+                    TRUE: state;
+                   esac;
+
+    next(y) := case
+                state=w & (y > 0): y - 1;
+                state=e & (y = 0): y + 1;
+                TRUE : y;
+               esac;
+
+
+MODULE main
+VAR
+    y_main: 0 .. 1;
+    t1 : process thread(y_main);
+    t2 : process thread(y_main);
+ASSIGN
+    init(y_main) := 1;

@@ -1,0 +1,33 @@
+MODULE thread(i, x, r)
+
+VAR
+    state : {start, code, exit};
+ASSIGN
+    init(state) := start;
+    next(r[i]) := case
+                    state = exit : FALSE;
+                    count (r[0], r[1]) = 0 : TRUE;
+                    TRUE : {FALSE, TRUE};
+                  esac;
+    next(state) := case
+                    (state = start) & r[i] & (x > 0) : code;
+                    (state = code) & r[i] : exit;
+                    TRUE : state;
+                   esac;
+    next(x) := case
+                (state = start) & (x > 0) : x - 1;
+                (state = exit) & (x = 0) : x + 1;
+                TRUE: x;
+               esac;
+
+MODULE main
+VAR
+    x_main : 0 .. 1;
+    run_t : array 0 .. 1 of boolean;
+    t1 : thread(0, x_main, run_t);
+    t2 : thread(1, x_main, run_t);
+ASSIGN
+    init(x_main) := 1;
+    init(run_t[0]) := FALSE;
+    init(run_t[1]) := FALSE;
+
