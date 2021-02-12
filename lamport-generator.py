@@ -40,14 +40,14 @@ PART_3 = f"""
                esac;"""
 
 release_jj = "\n".join([f"""    next(release[{j}][{j}]) := case
-                            i = {j} & (state = exit) : TRUE;
+                            i = {j} & (next(state) = exit) : TRUE;
                             i = {j} : FALSE;
                             TRUE: release[{j}][{j}];
                            esac;""" for j in range(n)])
 
 release_jk = "\n".join([f"""    next(release[{j}][{k}]) := case
                             (i = {j}) : FALSE;
-                            (i = {k}) & (state = exit) : TRUE;
+                            (i = {k}) & (next(state) = exit) : TRUE;
                             TRUE: release[{j}][{k}];
                            esac;""" for j in range(n) for k in range(n) if j != k])
 
@@ -59,10 +59,13 @@ PART_4 = f"""
     -- release[j][i] has to be made true when exiting.
 {release_jk}"""
 
+release_code = "\n".join([f"""                                        (request_queue[(next_request_to_process + {j}) mod {n}] != -1) & (release[i][request_queue[(next_request_to_process + {j}) mod {n}]]) : (next_request_to_process + {j + 1}) mod {n};"""
+                          for j in reversed(range(n))])
+
 PART_5 = f"""
     next(next_request_to_process) := case
-                                        (request_queue[next_request_to_process] = -1) : next_request_to_process;
-                                        release[i][request_queue[next_request_to_process]] : (next_request_to_process + 1) mod {n}; -- n threads
+                                        (request_queue[next_request_to_process] = -1) : next_request_to_process; -- empty queue
+{release_code}
                                         TRUE : next_request_to_process;
                                      esac;
 
@@ -100,7 +103,7 @@ reply_jj = "\n".join([f"""    next(reply[{j}][{j}]) := case
                          esac;""" for j in range(n)])
 
 reply_jk = "\n".join([f"""    next(reply[{j}][{k}]) := case
-                            (i = {j}) & (all_replies_received) & (state = critical) : FALSE;
+                            (i = {j}) & (all_replies_received) & (next(state) = critical) : FALSE;
                             (i = {j}) : reply[{j}][{k}];
                             (i = {k}) & (request[i][{j}] != -1) : TRUE;
                             TRUE: reply[{j}][{k}];
@@ -113,7 +116,7 @@ PART_7 = f"""
 
 
     -- next(reply[j][k]) := case
-    --                         (i = j) & (all_replies_received) & (state = critical) : FALSE; -- done with replies
+    --                         (i = j) & (all_replies_received) & (next(state) = critical) : FALSE; -- done with replies
     --                         (i = j) : reply[0][1]; -- not done with it yet, or not needed
     --                         (i = k) & bool (request[i][j]) : TRUE; -- send reply for request
     --                         TRUE: reply[j][k]; -- leave it as it

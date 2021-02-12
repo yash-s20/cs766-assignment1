@@ -28,12 +28,12 @@ ASSIGN
                esac;
     -- first doing release[j][j]
     next(release[0][0]) := case
-                            i = 0 & (state = exit) : TRUE;
+                            i = 0 & (next(state) = exit) : TRUE;
                             i = 0 : FALSE;
                             TRUE: release[0][0];
                            esac;
     next(release[1][1]) := case
-                            i = 1 & (state = exit) : TRUE;
+                            i = 1 & (next(state) = exit) : TRUE;
                             i = 1 : FALSE;
                             TRUE: release[1][1];
                            esac;
@@ -42,17 +42,18 @@ ASSIGN
     -- release[j][i] has to be made true when exiting.
     next(release[0][1]) := case
                             (i = 0) : FALSE;
-                            (i = 1) & (state = exit) : TRUE;
+                            (i = 1) & (next(state) = exit) : TRUE;
                             TRUE: release[0][1];
                            esac;
     next(release[1][0]) := case
                             (i = 1) : FALSE;
-                            (i = 0) & (state = exit) : TRUE;
+                            (i = 0) & (next(state) = exit) : TRUE;
                             TRUE: release[1][0];
                            esac;
     next(next_request_to_process) := case
-                                        (request_queue[next_request_to_process] = -1) : next_request_to_process;
-                                        release[i][request_queue[next_request_to_process]] : (next_request_to_process + 1) mod 2; -- n threads
+                                        (request_queue[next_request_to_process] = -1) : next_request_to_process; -- empty queue
+                                        (request_queue[(next_request_to_process + 1) mod 2] != -1) & (release[i][request_queue[(next_request_to_process + 1) mod 2]]) : (next_request_to_process + 2) mod 2;
+                                        (request_queue[(next_request_to_process + 0) mod 2] != -1) & (release[i][request_queue[(next_request_to_process + 0) mod 2]]) : (next_request_to_process + 1) mod 2;
                                         TRUE : next_request_to_process;
                                      esac;
 
@@ -101,19 +102,19 @@ ASSIGN
 
 
     -- next(reply[j][k]) := case
-    --                         (i = j) & (all_replies_received) & (state = critical) : FALSE; -- done with replies
+    --                         (i = j) & (all_replies_received) & (next(state) = critical) : FALSE; -- done with replies
     --                         (i = j) : reply[0][1]; -- not done with it yet, or not needed
     --                         (i = k) & bool (request[i][j]) : TRUE; -- send reply for request
     --                         TRUE: reply[j][k]; -- leave it as it
     --                      esac;
     next(reply[0][1]) := case
-                            (i = 0) & (all_replies_received) & (state = critical) : FALSE;
+                            (i = 0) & (all_replies_received) & (next(state) = critical) : FALSE;
                             (i = 0) : reply[0][1];
                             (i = 1) & (request[i][0] != -1) : TRUE;
                             TRUE: reply[0][1];
                          esac;
     next(reply[1][0]) := case
-                            (i = 1) & (all_replies_received) & (state = critical) : FALSE;
+                            (i = 1) & (all_replies_received) & (next(state) = critical) : FALSE;
                             (i = 1) : reply[1][0];
                             (i = 0) & (request[i][1] != -1) : TRUE;
                             TRUE: reply[1][0];
