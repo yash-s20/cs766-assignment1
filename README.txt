@@ -32,6 +32,9 @@ while in exit:
     move to non-critical
 
 
+if we're using processes:
+states non-critical, waiting, critical, exit
+non-critical
 
 Requests for CS are executed in the increasing order of timestamps and time
 is determined by logical clocks.

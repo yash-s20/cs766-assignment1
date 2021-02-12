@@ -2,64 +2,101 @@ MODULE thread(i, t, request, reply, release)
 VAR
     state : {non_critical, send_request, waiting_to_enter, critical, exit};
     request_queue : array 0..1 of 0..2; -- atmost n requests at a time, and 0 for null.
-    next_request_to_process : 0..1; -- index to the above queue for top, and empty if request_queue[next_request_to_process] is zero
-    -- top_of_queue: 
+    next_request_to_process : 0..100; -- index to the above queue for top, and empty if request_queue[next_request_to_process mod n] is zero
 -- JUSTICE state = exit;
+DEFINE
+    all_replies_received := (reply[i][0] | i = 0) & (reply[i][1] | i = 1); -- this will be n conjunctions for n threads.
 ASSIGN
     init(state) := non_critical;
     init(next_request_to_process) := 0;
+    -- for each 0..n-1 n threads
     init(request_queue[0]) := 0;
     init(request_queue[1]) := 0;
     next(state) := case
                     state = non_critical : {non_critical, send_request};
                     state = send_request : waiting_to_enter;
-                    state = waiting_to_enter & (request_queue[next_request_to_process] = i + 1) : critical; -- TODO: evaluate condition_to_enter
+                    state = waiting_to_enter & (request_queue[next_request_to_process mod 2] = i + 1) & (all_replies_received) : critical;
                     state = waiting_to_enter : waiting_to_enter;
                     state = critical : {critical, exit};
                     state = exit : non_critical;
                    esac;
     next(t) := case
-                (state = send_request) & (t < 1000) : t + 1;
+                (state = send_request) & (t < 100) : t + 1;
                 TRUE : t;
                esac;
-    -- write this for each request[j]
-    -- next(request[0][i])
-    -- next(request[1][i])
-    -- next(reply[i]) :=
-
-    -- write this for each release[j] where j in threads
-    next(release[0][i]) := case
-                            state = exit : TRUE;
-                            TRUE : release[0][i];
+    -- first doing release[j][j]
+    next(release[0][0]) := case
+                            i = 0 & (state = exit) : TRUE;
+                            i = 0 : FALSE;
+                            TRUE: release[0][0];
                            esac;
-    next(release[1][i]) := case
-                            state = exit : TRUE;
-                            TRUE : release[1][i];
+    next(release[1][1]) := case
+                            i = 1 & (state = exit) : TRUE;
+                            i = 1 : FALSE;
+                            TRUE: release[1][1];
                            esac;
-
-    -- write this for each release[.][j] where j in threads
-    -- next(release[i][0]) := case
-
-    --                        esac;
-    -- next(release[i][1]) := case
-    --                        esac;
-    
+    -- next all release[i'][j'] j' != i'
+    -- release[i][j] would be made true by thread j after leaving critical, so make it false (next_request_to_process will handle it)
+    -- release[j][i] has to be made true when exiting.
+    next(release[0][1]) := case
+                            (i = 0) : FALSE;
+                            (i = 1) & (state = exit) : TRUE;
+                            TRUE: release[0][1];
+                           esac;
+    next(release[1][0]) := case
+                            (i = 1) : FALSE;
+                            (i = 0) & (state = exit) : TRUE;
+                            TRUE: release[0][1];
+                           esac;
     next(next_request_to_process) := case
-                                        (request_queue[next_request_to_process] = 0) : next_request_to_process;
-                                        release[i][request_queue[next_request_to_process] - 1] : (next_request_to_process + 1) mod 2; -- n threads
+                                        (request_queue[next_request_to_process mod 2] = 0) : next_request_to_process;
+                                        release[i][request_queue[next_request_to_process mod 2] - 1] & (next_request_to_process < 100) : next_request_to_process + 1; -- n threads
                                         TRUE : next_request_to_process;
                                      esac;
 
+
+    -- next(request[j][j]) := case
+    --                         (i = j) & (state = send_request) : t;
+    --                         (i = j) : 0;
+    --                         TRUE: request[j][j];
+    --                        esac;
+    next(request[0][0]) := case
+                            (i = 0) & (state = send_request) : t;
+                            (i = 0) : 0;
+                            TRUE: request[0][0];
+                           esac;
+    next(request[1][1]) := case
+                            (i = 1) & (state = send_request) : t;
+                            (i = 1) : 0;
+                            TRUE: request[1][1];
+                           esac;
+
+    -- next(request[j][k]) := case
+    --                         (i = k) & (state = send_request) : t; -- send request
+    --                         (i = j) : 0; -- request will be acknowledged if process is active
+    --                         TRUE: request[j][k]; -- irrelevant.
+    --                        esac;
+    next(request[0][1]) := case
+                            (i = 1) & (state = send_request) : t; -- send request
+                            (i = 0) : 0; -- request will be acknowledged if process is active
+                            TRUE: request[0][1];
+                           esac;
+    next(request[1][0]) := case
+                            (i = 0) & (state = send_request) : t;
+                            (i = 1) : 0;
+                            TRUE: request[1][0];
+                           esac;
+
 MODULE main
 VAR
-    timestamp: 1..1000;
-    request_channel : array 0..1 of array 0..1 of 0 .. 1000;
+    timestamp: 1..100;
+    request_channel : array 0..1 of array 0..1 of 0 .. 100;
     reply_channel : array 0..1 of array 0..1 of boolean;
     release_channel : array 0..1 of array 0..1 of boolean;
     -- each channel is a n x n matrix.
     -- when thread i needs to send a request, it will set t to the ith number from each array in the request_channel matrix. then put itself in the queue.
     -- to look for requests, thread i will read all numbers from request_channel[i], any for any that are 1, send a reply to that thread.
-    -- when thread i is sending a reply to thread j it will set 1 to reply_channel's jth array's ith word index.
+    -- when thread i is sending a reply to thread j it will set 1 to reply_channel's jth array's ith element.
     -- when looking for replies from other threads, simply make sure count reply_channel[i] (array) == n-1.
     -- when releasing critical section, simply put ith bit of each array in release channel to 1.
     -- if j is at the top of the array, look for release_channel[i][j], if true, pop the queue, and set it to false.
@@ -68,3 +105,15 @@ VAR
 
 ASSIGN
     init(timestamp) := 1;
+    init(request_channel[0][0]) := 0;
+    init(request_channel[0][1]) := 0;
+    init(request_channel[1][0]) := 0;
+    init(request_channel[1][1]) := 0;
+    init(reply_channel[0][0]) := FALSE;
+    init(reply_channel[0][1]) := FALSE;
+    init(reply_channel[1][0]) := FALSE;
+    init(reply_channel[1][1]) := FALSE;
+    init(release_channel[0][0]) := FALSE;
+    init(release_channel[0][1]) := FALSE;
+    init(release_channel[1][0]) := FALSE;
+    init(release_channel[1][1]) := FALSE;
