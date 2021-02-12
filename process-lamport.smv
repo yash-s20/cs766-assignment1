@@ -87,6 +87,36 @@ ASSIGN
                             TRUE: request[1][0];
                            esac;
 
+
+    next(reply[0][0]) := case
+                            (i = 0) : FALSE;
+                            TRUE: reply[0][0];
+                         esac;
+    next(reply[1][1]) := case
+                            (i = 1) : FALSE;
+                            TRUE: reply[1][1];
+                         esac;
+
+
+    -- next(reply[j][k]) := case
+    --                         (i = j) & (all_replies_received) : FALSE; -- done with replies
+    --                         (i = j) : reply[0][1]; -- not done with it yet, or not needed
+    --                         (i = k) & (request[i][j]) : TRUE; -- send reply for request
+    --                         TRUE: reply[j][k]; -- leave it as it
+    --                      esac;
+    next(reply[0][1]) := case
+                            (i = 0) & (all_replies_received) : FALSE;
+                            (i = 0) : reply[0][1];
+                            (i = 1) & (request[i][0]) : TRUE;
+                            TRUE: reply[0][1];
+                         esac;
+    next(reply[1][0]) := case
+                            (i = 1) & (all_replies_received) : FALSE;
+                            (i = 1) : reply[1][0];
+                            (i = 0) & (request[i][1]) : TRUE;
+                            TRUE: reply[1][0];
+                         esac;
+
 MODULE main
 VAR
     timestamp: 1..100;
