@@ -2,6 +2,8 @@ MODULE thread(y)
 
 VAR
     state: {nc, w, c, e};
+JUSTICE state = e;
+LTLSPEC G( state = w -> (state = w U state = c) );
 ASSIGN
     init(state) := nc;
     next(state) := case
