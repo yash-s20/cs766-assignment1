@@ -1,27 +1,27 @@
 MODULE thread(i, t, request, reply, release)
 VAR
     state : {non_critical, send_request, waiting_to_enter, critical, exit};
-    request_queue : array 0..1 of 0..2; -- atmost n requests at a time, and 0 for null.
-    next_request_to_process : 0..100; -- index to the above queue for top, and empty if request_queue[next_request_to_process mod n] is zero
+    request_queue : array 0..1 of -1..1; -- atmost n requests at a time, and -1 for null.
+    next_request_to_process : 0..1; -- index to the above queue for top, and empty if request_queue[next_request_to_process mod n] is -1
 JUSTICE state = critical;
 DEFINE
     all_replies_received := (reply[i][0] | i = 0) & (reply[i][1] | i = 1); -- this will be n conjunctions for n threads.
 ASSIGN
     init(state) := non_critical;
-    init(next_request_to_process) := 0;
+    init(next_request_to_process) := 0; -- this is where the first entry to the queue will go
     -- for each 0..n-1 n threads
-    init(request_queue[0]) := 0;
-    init(request_queue[1]) := 0;
+    init(request_queue[0]) := -1;
+    init(request_queue[1]) := -1;
     next(state) := case
                     state = non_critical : {non_critical, send_request};
                     state = send_request : waiting_to_enter;
-                    state = waiting_to_enter & (request_queue[next_request_to_process mod 2] = i + 1) & (all_replies_received) : critical;
+                    state = waiting_to_enter & (request_queue[next_request_to_process] = i + 1) & (all_replies_received) : critical;
                     state = waiting_to_enter : waiting_to_enter;
                     state = critical : {critical, exit};
                     state = exit : non_critical;
                    esac;
     next(t) := case
-                (state = send_request) & (t < 100) : t + 1;
+                (state = send_request) : (t + 1) mod 2;
                 TRUE : t;
                esac;
     -- first doing release[j][j]
@@ -49,41 +49,41 @@ ASSIGN
                             TRUE: release[1][0];
                            esac;
     next(next_request_to_process) := case
-                                        (request_queue[next_request_to_process mod 2] = 0) : next_request_to_process;
-                                        release[i][request_queue[next_request_to_process mod 2] - 1] & (next_request_to_process < 100) : next_request_to_process + 1; -- n threads
+                                        (request_queue[next_request_to_process] = -1) : next_request_to_process;
+                                        release[i][request_queue[next_request_to_process]] : (next_request_to_process + 1) mod 2; -- n threads
                                         TRUE : next_request_to_process;
                                      esac;
 
 
     -- next(request[j][j]) := case
     --                         (i = j) & (state = send_request) : t;
-    --                         (i = j) : 0;
+    --                         (i = j) : -1;
     --                         TRUE: request[j][j];
     --                        esac;
     next(request[0][0]) := case
                             (i = 0) & (state = send_request) : t;
-                            (i = 0) : 0;
+                            (i = 0) : -1;
                             TRUE: request[0][0];
                            esac;
     next(request[1][1]) := case
                             (i = 1) & (state = send_request) : t;
-                            (i = 1) : 0;
+                            (i = 1) : -1;
                             TRUE: request[1][1];
                            esac;
 
     -- next(request[j][k]) := case
     --                         (i = k) & (state = send_request) : t; -- send request
-    --                         (i = j) : 0; -- request will be acknowledged if process is active
+    --                         (i = j) : -1; -- request will be acknowledged if process is active
     --                         TRUE: request[j][k]; -- irrelevant.
     --                        esac;
     next(request[0][1]) := case
-                            (i = 1) & (state = send_request) : t; -- send request
-                            (i = 0) : 0; -- request will be acknowledged if process is active
+                            (i = 1) & (state = send_request) : t;
+                            (i = 0) : -1;
                             TRUE: request[0][1];
                            esac;
     next(request[1][0]) := case
                             (i = 0) & (state = send_request) : t;
-                            (i = 1) : 0;
+                            (i = 1) : -1;
                             TRUE: request[1][0];
                            esac;
 
@@ -107,36 +107,36 @@ ASSIGN
     next(reply[0][1]) := case
                             (i = 0) & (all_replies_received) : FALSE;
                             (i = 0) : reply[0][1];
-                            (i = 1) & bool (request[i][0]) : TRUE;
+                            (i = 1) & (request[i][0] != -1) : TRUE;
                             TRUE: reply[0][1];
                          esac;
     next(reply[1][0]) := case
                             (i = 1) & (all_replies_received) : FALSE;
                             (i = 1) : reply[1][0];
-                            (i = 0) & bool (request[i][1]) : TRUE;
+                            (i = 0) & (request[i][1] != -1) : TRUE;
                             TRUE: reply[1][0];
                          esac;
 
     -- queueing : requests are accumulated in request[i] array
     -- next(request_queue[j]) := case
     --                         for each k
-    --                         (bool (request[i][k])) & (request[i][k] mod 2 = j) : k + 1;
-    --                         request_queue[j] = 0: 0;
-    --                         release[i][request_queue[j] - 1] : 0;
+    --                         (request[i][k] != -1) & (request[i][k] = j) : k;
+    --                         request_queue[j] = -1: -1;
+    --                         release[i][request_queue[j]] : -1;
     --                         TRUE: request_queue[j];
     --                         esac;
     next(request_queue[0]) := case
-                                (bool (request[i][0])) & (request[i][0] mod 2 = 0) : 0 + 1;
-                                (bool (request[i][1])) & (request[i][1] mod 2 = 0) : 1 + 1;
-                                request_queue[0] = 0: 0;
-                                release[i][request_queue[0] - 1] : 0;
+                                (request[i][0] != -1) & (request[i][0] = 0) : 0;
+                                (request[i][1] != -1) & (request[i][1] = 0) : 1;
+                                request_queue[0] = -1: -1;
+                                release[i][request_queue[0]] : -1;
                                 TRUE: request_queue[0];
                               esac;
     next(request_queue[1]) := case
-                                (bool (request[i][0])) & (request[i][0] mod 2 = 1) : 0 + 1;
-                                (bool (request[i][1])) & (request[i][1] mod 2 = 1) : 1 + 1;
-                                request_queue[1] = 0: 0;
-                                release[i][request_queue[1] - 1] : 0;
+                                (request[i][0] != -1) & (request[i][0] = 1) : 0;
+                                (request[i][1] != -1) & (request[i][1] = 1) : 1;
+                                request_queue[1] = -1: -1;
+                                release[i][request_queue[1]] : -1;
                                 TRUE: request_queue[1];
                               esac;
 CTLSPEC AG (state = waiting_to_enter -> AF state = critical)
@@ -144,8 +144,8 @@ CTLSPEC AG (state = waiting_to_enter -> AF state = critical)
 
 MODULE main
 VAR
-    timestamp: 1..100;
-    request_channel : array 0..1 of array 0..1 of 0 .. 100;
+    timestamp: 0..1;
+    request_channel : array 0..1 of array 0..1 of -1 .. 1;
     reply_channel : array 0..1 of array 0..1 of boolean;
     release_channel : array 0..1 of array 0..1 of boolean;
     -- each channel is a n x n matrix.
@@ -159,11 +159,11 @@ VAR
     t2 : process thread(1, timestamp, request_channel, reply_channel, release_channel);
 
 ASSIGN
-    init(timestamp) := 1;
-    init(request_channel[0][0]) := 0;
-    init(request_channel[0][1]) := 0;
-    init(request_channel[1][0]) := 0;
-    init(request_channel[1][1]) := 0;
+    init(timestamp) := 0;
+    init(request_channel[0][0]) := -1;
+    init(request_channel[0][1]) := -1;
+    init(request_channel[1][0]) := -1;
+    init(request_channel[1][1]) := -1;
     init(reply_channel[0][0]) := FALSE;
     init(reply_channel[0][1]) := FALSE;
     init(reply_channel[1][0]) := FALSE;
@@ -173,4 +173,4 @@ ASSIGN
     init(release_channel[1][0]) := FALSE;
     init(release_channel[1][1]) := FALSE;
 CTLSPEC
-    AG ! (t1.state = critical & t2.state = critical)
+    AG ! ((t1.state = critical & t2.state = critical))
