@@ -1,8 +1,14 @@
+"""
+Author: Yash Sharma
+"""
+
 import sys
 
 
 n = int(sys.argv[1])
-PART_1 = f"""MODULE thread(i, t, request, reply, release)
+PART_1 = f"""-- Author: Yash Sharma
+
+MODULE thread(i, t, request, reply, release)
 VAR
     state : {{non_critical, send_request, waiting_to_enter, critical, exit}};
     request_queue : array 0..{n - 1} of -1..{n-1}; -- atmost n requests at a time, and -1 for null.
@@ -23,7 +29,7 @@ PART_3 = f"""
     next(state) := case
                     state = non_critical : {{non_critical, send_request}};
                     state = send_request : waiting_to_enter;
-                    state = waiting_to_enter & (request_queue[next_request_to_process] = i + 1) & (all_replies_received) : critical;
+                    state = waiting_to_enter & (request_queue[next_request_to_process] = i) & (all_replies_received) : critical;
                     state = waiting_to_enter : waiting_to_enter;
                     state = critical : {{critical, exit}};
                     state = exit : non_critical;
@@ -94,7 +100,7 @@ reply_jj = "\n".join([f"""    next(reply[{j}][{j}]) := case
                          esac;""" for j in range(n)])
 
 reply_jk = "\n".join([f"""    next(reply[{j}][{k}]) := case
-                            (i = {j}) & (all_replies_received) : FALSE;
+                            (i = {j}) & (all_replies_received) & (state = critical) : FALSE;
                             (i = {j}) : reply[{j}][{k}];
                             (i = {k}) & (request[i][{j}] != -1) : TRUE;
                             TRUE: reply[{j}][{k}];
@@ -107,7 +113,7 @@ PART_7 = f"""
 
 
     -- next(reply[j][k]) := case
-    --                         (i = j) & (all_replies_received) : FALSE; -- done with replies
+    --                         (i = j) & (all_replies_received) & (state = critical) : FALSE; -- done with replies
     --                         (i = j) : reply[0][1]; -- not done with it yet, or not needed
     --                         (i = k) & bool (request[i][j]) : TRUE; -- send reply for request
     --                         TRUE: reply[j][k]; -- leave it as it

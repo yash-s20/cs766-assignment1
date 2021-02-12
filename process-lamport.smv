@@ -1,3 +1,5 @@
+-- Author: Yash Sharma
+
 MODULE thread(i, t, request, reply, release)
 VAR
     state : {non_critical, send_request, waiting_to_enter, critical, exit};
@@ -15,7 +17,7 @@ ASSIGN
     next(state) := case
                     state = non_critical : {non_critical, send_request};
                     state = send_request : waiting_to_enter;
-                    state = waiting_to_enter & (request_queue[next_request_to_process] = i + 1) & (all_replies_received) : critical;
+                    state = waiting_to_enter & (request_queue[next_request_to_process] = i) & (all_replies_received) : critical;
                     state = waiting_to_enter : waiting_to_enter;
                     state = critical : {critical, exit};
                     state = exit : non_critical;
@@ -99,19 +101,19 @@ ASSIGN
 
 
     -- next(reply[j][k]) := case
-    --                         (i = j) & (all_replies_received) : FALSE; -- done with replies
+    --                         (i = j) & (all_replies_received) & (state = critical) : FALSE; -- done with replies
     --                         (i = j) : reply[0][1]; -- not done with it yet, or not needed
     --                         (i = k) & bool (request[i][j]) : TRUE; -- send reply for request
     --                         TRUE: reply[j][k]; -- leave it as it
     --                      esac;
     next(reply[0][1]) := case
-                            (i = 0) & (all_replies_received) : FALSE;
+                            (i = 0) & (all_replies_received) & (state = critical) : FALSE;
                             (i = 0) : reply[0][1];
                             (i = 1) & (request[i][0] != -1) : TRUE;
                             TRUE: reply[0][1];
                          esac;
     next(reply[1][0]) := case
-                            (i = 1) & (all_replies_received) : FALSE;
+                            (i = 1) & (all_replies_received) & (state = critical) : FALSE;
                             (i = 1) : reply[1][0];
                             (i = 0) & (request[i][1] != -1) : TRUE;
                             TRUE: reply[1][0];
@@ -173,4 +175,4 @@ ASSIGN
     init(release_channel[1][0]) := FALSE;
     init(release_channel[1][1]) := FALSE;
 CTLSPEC
-    AG ! ((t1.state = critical & t2.state = critical))
+    AG ! (( t1.state = critical & t2.state = critical ))
