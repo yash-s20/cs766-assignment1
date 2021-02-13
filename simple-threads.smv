@@ -2,8 +2,9 @@ MODULE thread(y)
 
 VAR
     state: {nc, w, c, e};
-JUSTICE state = e;
-LTLSPEC G( state = w -> (state = w U state = c) );
+JUSTICE running;
+COMPASSION (state = c, state = e);
+LTLSPEC G( state = w -> F (state = c) );
 ASSIGN
     init(state) := nc;
     next(state) := case
@@ -28,3 +29,4 @@ VAR
     t2 : process thread(y_main);
 ASSIGN
     init(y_main) := 1;
+LTLSPEC G(!(t1.state = c & t2.state = c))

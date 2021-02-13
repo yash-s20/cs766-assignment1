@@ -13,7 +13,8 @@ VAR
     state : {{non_critical, send_request, waiting_to_enter, critical, exit}};
     request_queue : array 0..{n - 1} of -1..{n-1}; -- atmost n requests at a time, and -1 for null.
     next_request_to_process : 0..{n-1}; -- index to the above queue for top, and empty if request_queue[next_request_to_process mod n] is -1
-JUSTICE state = critical;"""
+JUSTICE running;
+COMPASSION (state = critical, state = exit);"""
 
 delim = "\n    "
 PART_2 = f"""
@@ -148,7 +149,7 @@ PART_8 = f"""
     --                         TRUE: request_queue[j];
     --                         esac;
 {queue_j}
-CTLSPEC AG (state = waiting_to_enter -> AF state = critical)
+LTLSPEC G (state = waiting_to_enter -> F state = critical)
 
 """
 
@@ -183,7 +184,7 @@ ASSIGN
 {request_defn}
 {reply_defn}
 {release_defn}
-CTLSPEC
-    AG ! ({mutual_exclusion})"""
+LTLSPEC
+    G ! ({mutual_exclusion})"""
 
 print(PART_1 + PART_2 + PART_3 + PART_4 + PART_5 + PART_6 + PART_7 + PART_8 + PART_9)

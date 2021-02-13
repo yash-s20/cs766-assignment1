@@ -5,7 +5,8 @@ VAR
     state : {non_critical, send_request, waiting_to_enter, critical, exit};
     request_queue : array 0..1 of -1..1; -- atmost n requests at a time, and -1 for null.
     next_request_to_process : 0..1; -- index to the above queue for top, and empty if request_queue[next_request_to_process mod n] is -1
-JUSTICE state = critical;
+JUSTICE running;
+COMPASSION (state = critical, state = exit);
 DEFINE
     all_replies_received := (reply[i][0] | i = 0) & (reply[i][1] | i = 1); -- this will be n conjunctions for n threads.
 ASSIGN
@@ -142,7 +143,7 @@ ASSIGN
                                 release[i][request_queue[1]] : -1;
                                 TRUE: request_queue[1];
                               esac;
-CTLSPEC AG (state = waiting_to_enter -> AF state = critical)
+LTLSPEC G (state = waiting_to_enter -> F state = critical)
 
 
 MODULE main
@@ -175,5 +176,5 @@ ASSIGN
     init(release_channel[0][1]) := FALSE;
     init(release_channel[1][0]) := FALSE;
     init(release_channel[1][1]) := FALSE;
-CTLSPEC
-    AG ! (( t1.state = critical & t2.state = critical ))
+LTLSPEC
+    G ! (( t1.state = critical & t2.state = critical ))
